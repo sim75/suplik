@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#2c5f63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Šuplík">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Konfigurátor šuplíku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: katalog vlevo, 3D šuplík uprostřed, inspektor vpravo; na telefonu se panely skládají pod 3D náhled. */
+:root{
+  --bg:#f1f0ed; --panel:#fafaf8; --line:#dcd9d2; --fg:#22201d; --muted:#6b665f;
+  --accent:#2c5f63; --on-accent:#ffffff; --accent-soft:#dde9e9;
+  --field:#ffffff; --stage:#e9e6e0; --ground:#b9a58f; --bad:#c0392b; --ok:#2e7d4f;
+  --font-ui:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151514; --panel:#1d1d1b; --line:#34332f; --fg:#ecebe7; --muted:#9b968d;
+    --accent:#72b5b8; --on-accent:#0f1f20; --accent-soft:#263a3b;
+    --field:#141413; --stage:#242422; --ground:#3a3027; --bad:#e5604f; --ok:#5cc08a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151514; --panel:#1d1d1b; --line:#34332f; --fg:#ecebe7; --muted:#9b968d;
+  --accent:#72b5b8; --on-accent:#0f1f20; --accent-soft:#263a3b;
+  --field:#141413; --stage:#242422; --ground:#3a3027; --bad:#e5604f; --ok:#5cc08a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:14px;line-height:1.45;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{height:100%;display:flex;flex-direction:column;min-height:0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:12px max(16px,env(safe-area-inset-left,0px)) 12px max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{font-family:var(--font-num);font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:var(--field);border-radius:var(--r);padding:7px 12px;font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn.sm{padding:5px 9px;font-size:12px}
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:288px minmax(0,1fr) 308px;grid-template-areas:"cat stage insp"}
+.panel{background:var(--panel);overflow-y:auto;min-width:0;padding:16px;display:flex;flex-direction:column;gap:20px}
+.cat{grid-area:cat;border-right:1px solid var(--line)}
+.insp{grid-area:insp;border-left:1px solid var(--line)}
+.stage{grid-area:stage;position:relative;min-width:0;min-height:0;background:var(--stage);overflow:hidden}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+.sec{display:flex;flex-direction:column}
+.cards{display:grid;grid-template-columns:1fr;gap:8px}
+.card{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);
+  background:var(--field);border-radius:var(--r);padding:8px}
+.card:hover{border-color:var(--accent)}
+.card canvas{width:64px;height:46px;border-radius:4px;display:block}
+.card b{display:block;font-size:13px;font-weight:600;line-height:1.25}
+.card span{font-family:var(--font-num);font-size:11px;color:var(--muted)}
+.fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.fields.two{grid-template-columns:1fr 1fr}
+.fields.one{grid-template-columns:1fr}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);font-weight:600;min-width:0}
+input[type=number],input[type=text],textarea{width:100%;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-family:var(--font-num);font-size:13px;color:var(--fg)}
+input[type=text]{font-family:var(--font-ui)}
+input:focus,textarea:focus{border-color:var(--accent)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);padding:0}
+.sw.on{box-shadow:0 0 0 2px var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:12px;margin:0}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:13px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){font-family:var(--font-num);text-align:right}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin:2px 0 10px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.list{display:flex;flex-direction:column;gap:4px}
+.li{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid transparent;border-radius:6px;padding:6px 8px;background:transparent;text-align:left;width:100%}
+.li:hover{background:var(--accent-soft)}
+.li.on{border-color:var(--accent);background:var(--accent-soft)}
+.li small{font-family:var(--font-num);color:var(--muted);font-size:11px;white-space:nowrap}
+.li.bad b{color:var(--bad)}
+.warn{color:var(--bad);font-size:12px;font-weight:600}
+.bar-top,.bar-bot{position:absolute;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;pointer-events:none}
+.bar-top{top:12px;justify-content:space-between}
+.bar-bot{bottom:12px;justify-content:space-between}
+.bar-top>*,.bar-bot>*{pointer-events:auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:6px 11px;font-size:12px;font-weight:600}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;font-size:12px;font-family:var(--font-num)}
+.tgl{display:inline-flex;gap:6px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;font-size:12px;font-weight:600}
+.tag{position:absolute;transform:translate(-50%,-50%);font-family:var(--font-num);font-size:11px;background:var(--panel);color:var(--fg);
+  border:1px solid var(--line);border-radius:4px;padding:1px 6px;pointer-events:none;white-space:nowrap}
+.tag.sel{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.toast{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:var(--r);font-size:13px;font-weight:600;max-width:90%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:640px;width:100%;max-height:92vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.sheet h3{margin:0;font-size:16px}
+.sheet img{width:100%;border-radius:8px;border:1px solid var(--line)}
+.sheet textarea{min-height:120px;resize:vertical;font-size:12px;word-break:break-all}
+.sheet pre{margin:0;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--font-num);font-size:12px;white-space:pre-wrap;overflow-x:auto}
+@media (max-width:900px){
+  .app{height:auto}
+  .layout{display:flex;flex-direction:column}
+  .stage{order:-1;height:64vh;min-height:380px;flex:none}
+  .cat{border-right:0}.insp{border-left:0;border-top:1px solid var(--line)}
+  .panel{overflow:visible}
+  .cards{grid-template-columns:1fr 1fr}
+  .card{grid-template-columns:1fr}
+  .card canvas{width:100%;height:56px}
+}
+@media (max-width:420px){.cards{grid-template-columns:1fr}.card{grid-template-columns:64px 1fr}.card canvas{width:64px;height:46px}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+html,body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+.app{height:100dvh;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.btn,.seg button,.li{min-height:36px}
+@media (pointer:coarse){.btn.sm{padding:8px 12px;font-size:13px}.sw{width:32px;height:32px}.seg button{padding:9px 13px}}
+@media (max-width:900px){.app{height:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1>Konfigurátor šuplíku</h1><span class="sub" id="drawerSub"></span></div>
+    <div class="actions">
+      <button class="btn" id="btnShare">Sdílet</button>
+      <button class="btn primary" id="btnExport">Export</button>
+    </div>
+  </header>
+  <main class="layout">
+    <section class="stage" id="stage">
+      <div class="bar-top">
+        <div class="seg" id="viewSeg">
+          <button data-v="persp" class="on">Perspektiva</button><button data-v="top">Shora</button><button data-v="front">Zepředu</button>
+        </div>
+        <div class="row">
+          <label class="tgl"><input type="checkbox" id="chkFront"> Přední stěna</label>
+          <button class="btn sm" id="btnUndo" title="Zpět (Ctrl+Z)">Zpět</button>
+          <button class="btn sm" id="btnRedo" title="Znovu (Ctrl+Shift+Z)">Znovu</button>
+        </div>
+      </div>
+      <div class="bar-bot">
+        <div class="row">
+          <button class="btn sm" id="btnAuto">Auto-rozmístit</button>
+          <button class="btn sm danger" id="btnClear">Vyprázdnit šuplík</button>
+        </div>
+        <div class="chip" id="statChip"></div>
+      </div>
+      <div class="toast" id="toast"></div>
+    </section>
+
+    <aside class="panel cat">
+      <div class="sec">
+        <h2>Katalog organizérů</h2>
+        <div class="cards" id="cards"></div>
+        <p class="hint" style="margin-top:10px">Klepnutím přidáte modul na první volné místo. Každý lze potom upravit na jakýkoli rozměr.</p>
+      </div>
+      <div class="sec">
+        <h2>Vnitřek šuplíku (cm)</h2>
+        <div class="fields">
+          <label class="f">Šířka<input type="number" id="dw" min="10" max="200" step="0.5"></label>
+          <label class="f">Hloubka<input type="number" id="dd" min="10" max="200" step="0.5"></label>
+          <label class="f">Výška<input type="number" id="dh" min="2" max="60" step="0.5"></label>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="panel insp">
+      <div class="sec" id="inspector"></div>
+      <div class="sec">
+        <h2>Využití šuplíku</h2>
+        <div class="bar"><i id="useBar" style="width:0%"></i></div>
+        <div class="kv" id="statKv"></div>
+        <p class="warn" id="warnBox" style="margin-top:8px"></p>
+      </div>
+      <div class="sec">
+        <h2>Moduly v šuplíku</h2>
+        <div class="list" id="modList"></div>
+      </div>
+      <p class="hint">Klávesy: R otočí, Delete smaže, šipky posouvají o 0,5 cm (Shift o 2 cm), Ctrl+Z vrací. Rozložení se ukládá automaticky v tomto prohlížeči.</p>
+    </aside>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var fmt=function(n){return (Math.round(n*10)/10).toString().replace('.',',')};
+var clamp=function(v,a,b){return Math.min(b,Math.max(a,v))};
+var EPS=0.02;
+
+/* ---------- katalog ---------- */
+var COLORS=[['Šedá','#b4b7bb'],['Béžová','#cdbfa8'],['Černá','#2e2e31'],['Růžová','#d9a9b3'],['Modrá','#8ea6bd'],['Zelená','#9bb3a0']];
+var PRESETS=[
+ {key:'grid6',name:'Mřížka přihrádek',type:'grid',w:35,d:24,h:3.3,cols:6,rows:4},
+ {key:'grid4',name:'Větší přihrádky',type:'grid',w:35,d:24,h:3.3,cols:4,rows:2},
+ {key:'pillows',name:'Polštářky na hodinky',type:'pillows',w:35,d:24,h:3.3,cols:4,rows:3},
+ {key:'neck',name:'Tác na náhrdelníky',type:'necklace',w:35,d:24,h:3.3,cols:1,rows:1},
+ {key:'rings',name:'Role na prsteny',type:'rings',w:35,d:24,h:3.3,cols:7,rows:1},
+ {key:'combo',name:'Kombinovaný tác',type:'combo',w:35,d:24,h:3.3,cols:2,rows:4},
+ {key:'custom',name:'Vlastní přihrádky',type:'grid',w:20,d:15,h:4,cols:3,rows:2},
+ {key:'box',name:'Prázdná krabice',type:'grid',w:12,d:12,h:3.3,cols:1,rows:1}
+];
+
+/* ---------- stav ---------- */
+var S=null, selected=null, hist=[], hi=-1, STORE='suplik-konfigurace-v1';
+function fp(m,rot){ var r=(rot===undefined)?m.rot:rot; return r?[m.d,m.w]:[m.w,m.d]; }
+function byId(id){ for(var i=0;i<S.modules.length;i++) if(S.modules[i].id===id) return S.modules[i]; return null; }
+function mk(p,o){ var m={id:S.nextId++,key:p.key,type:p.type,name:p.name,w:p.w,d:p.d,h:p.h,cols:p.cols,rows:p.rows,rot:0,x:0,z:0,y:0,color:COLORS[0][1],bad:false}; for(var k in (o||{})) m[k]=o[k]; return m; }
+function seed(){
+  S={drawer:{w:53,d:40,h:9},modules:[],nextId:1};
+  var W=53,D=40;
+  S.modules.push(mk(PRESETS[2],{rot:1,x:-W/2+12,z:-D/2+17.5}));
+  S.modules.push(mk(PRESETS[0],{rot:1,x:-W/2+36,z:-D/2+17.5}));
+  S.modules.push(mk(PRESETS[3],{rot:1,x:-W/2+36,z:-D/2+17.5,color:COLORS[1][1]}));
+  settle();
+}
+function load(){ try{ var s=localStorage.getItem(STORE); if(!s) return false; var o=JSON.parse(s); if(!o||!o.drawer||!o.modules) return false; S=o; return true; }catch(e){return false;} }
+function save(){ try{ localStorage.setItem(STORE,JSON.stringify(S)); }catch(e){} }
+
+/* ---------- pravidla umístění ---------- */
+function place(m,cx,cz,others,rot){
+  var f=fp(m,rot), fw=f[0], fd=f[1], W=S.drawer.w, D=S.drawer.d, H=S.drawer.h;
+  if(cx-fw/2<-W/2-EPS||cx+fw/2>W/2+EPS||cz-fd/2<-D/2-EPS||cz+fd/2>D/2+EPS) return {ok:false,y:0,why:'out'};
+  var base=0, ov=[];
+  for(var i=0;i<others.length;i++){ var o=others[i]; if(o===m) continue; var q=fp(o);
+    var ix=Math.min(cx+fw/2,o.x+q[0]/2)-Math.max(cx-fw/2,o.x-q[0]/2);
+    var iz=Math.min(cz+fd/2,o.z+q[1]/2)-Math.max(cz-fd/2,o.z-q[1]/2);
+    if(ix>EPS&&iz>EPS){ ov.push({o:o,a:ix*iz}); base=Math.max(base,o.y+o.h); } }
+  if(base>0){ var sup=0; ov.forEach(function(x){ if(Math.abs(x.o.y+x.o.h-base)<0.05) sup+=x.a; }); if(sup<0.6*fw*fd) return {ok:false,y:base,why:'support'}; }
+  if(base+m.h>H+EPS) return {ok:false,y:base,why:'height'};
+  return {ok:true,y:base};
+}
+var WHY={out:'Modul by přesahoval stěny šuplíku',support:'Pod modulem chybí podpora',height:'Modul by přesáhl výšku šuplíku'};
+function settle(){
+  var order=S.modules.slice().sort(function(a,b){return a.y-b.y||a.id-b.id;}), done=[];
+  order.forEach(function(m){ var r=place(m,m.x,m.z,done); m.bad=!r.ok; m.y=r.y||0; done.push(m); });
+}
+function deps(m){
+  var out=[], seen={}; seen[m.id]=1;
+  (function walk(b){ var bf=fp(b); S.modules.forEach(function(d){ if(seen[d.id]) return; if(d.y<b.y+b.h-0.05) return; var df=fp(d);
+    var ix=Math.min(b.x+bf[0]/2,d.x+df[0]/2)-Math.max(b.x-bf[0]/2,d.x-df[0]/2), iz=Math.min(b.z+bf[1]/2,d.z+df[1]/2)-Math.max(b.z-bf[1]/2,d.z-df[1]/2);
+    if(ix>EPS&&iz>EPS){ seen[d.id]=1; out.push(d); walk(d); } }); })(m);
+  return out;
+}
+function evalMove(m,cx,cz,rot){
+  var group=[m].concat(deps(m)), others=S.modules.filter(function(o){return group.indexOf(o)<0;});
+  var r=place(m,cx,cz,others,rot);
+  if(!r.ok) return {ok:false,why:r.why,y:r.y,group:group};
+  var dx=cx-m.x, dz=cz-m.z, dy=r.y-m.y, W=S.drawer.w, D=S.drawer.d, H=S.drawer.h;
+  for(var i=1;i<group.length;i++){ var d=group[i], f=fp(d);
+    if(d.x+dx-f[0]/2<-W/2-EPS||d.x+dx+f[0]/2>W/2+EPS||d.z+dz-f[1]/2<-D/2-EPS||d.z+dz+f[1]/2>D/2+EPS) return {ok:false,why:'out',y:r.y,group:group};
+    if(d.y+dy+d.h>H+EPS) return {ok:false,why:'height',y:r.y,group:group}; }
+  return {ok:true,y:r.y,dx:dx,dz:dz,dy:dy,group:group};
+}
+function applyMove(m,cx,cz,rot,ev){
+  for(var i=1;i<ev.group.length;i++){ var d=ev.group[i]; d.x+=ev.dx; d.z+=ev.dz; d.y+=ev.dy; }
+  m.x=cx; m.z=cz; m.y=ev.y; if(rot!==undefined) m.rot=rot;
+}
+function snap(m,cx,cz,others,rot){
+  var f=fp(m,rot), W=S.drawer.w, D=S.drawer.d, thr=0.9;
+  var xs=[-W/2,W/2], zs=[-D/2,D/2];
+  others.forEach(function(o){ var q=fp(o); xs.push(o.x-q[0]/2,o.x+q[0]/2); zs.push(o.z-q[1]/2,o.z+q[1]/2); });
+  function best(c,half,ts){ var ba=thr, dl=0; ts.forEach(function(t){ [-1,1].forEach(function(s){ var d=t-(c+s*half); if(Math.abs(d)<ba){ba=Math.abs(d);dl=d;} }); }); return c+dl; }
+  return [best(cx,f[0]/2,xs),best(cz,f[1]/2,zs)];
+}
+function findSpot(m,others){
+  var W=S.drawer.w, D=S.drawer.d, rots=[m.rot,m.rot?0:1];
+  for(var pass=0;pass<2;pass++) for(var ri=0;ri<2;ri++){
+    var rot=rots[ri], f=fp(m,rot), fw=f[0], fd=f[1];
+    if(fw>W+EPS||fd>D+EPS) continue;
+    for(var z=-D/2+fd/2; z<=D/2-fd/2+EPS; z+=0.5) for(var x=-W/2+fw/2; x<=W/2-fw/2+EPS; x+=0.5){
+      var r=place(m,x,z,others,rot); if(r.ok&&(pass===1||r.y===0)) return {x:x,z:z,y:r.y,rot:rot};
+    }
+  }
+  return null;
+}
+
+/* ---------- historie ---------- */
+function snapshot(){ return JSON.stringify(S); }
+function pushHist(){ hist=hist.slice(0,hi+1); hist.push(snapshot()); if(hist.length>80) hist.shift(); hi=hist.length-1; }
+function commit(){ settle(); pushHist(); save(); refreshAll(); }
+function undo(){ if(hi<=0) return; hi--; S=JSON.parse(hist[hi]); if(selected&&!byId(selected)) selected=null; save(); refreshAll(); }
+function redo(){ if(hi>=hist.length-1) return; hi++; S=JSON.parse(hist[hi]); if(selected&&!byId(selected)) selected=null; save(); refreshAll(); }
+
+/* ---------- three.js ---------- */
+var stage=$('#stage');
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.insertBefore(renderer.domElement,stage.firstChild);
+var canvas=renderer.domElement;
+var scene=new THREE.Scene();
+var cam=new THREE.PerspectiveCamera(32,1,1,600);
+scene.add(new THREE.HemisphereLight(0xffffff,0x9a9086,0.85));
+var sun=new THREE.DirectionalLight(0xffffff,0.75); sun.position.set(-30,90,50); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); var sc=sun.shadow.camera; sc.left=-50;sc.right=50;sc.top=50;sc.bottom=-50;sc.near=10;sc.far=250; sun.shadow.bias=-0.0006;
+scene.add(sun);
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({color:0xb9a58f,roughness:1}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-1.3; ground.receiveShadow=true; scene.add(ground);
+
+var ctlReady=false, controls;
+var raycaster=new THREE.Raycaster(), ndc=new THREE.Vector2();
+var groups=new Map(), drawerGroup=null, drawerSig='';
+var showFront=false;
+
+/* sametová textura */
+var TEX=(function(){ var c=document.createElement('canvas'); c.width=c.height=128; var x=c.getContext('2d'), id=x.createImageData(128,128);
+  for(var i=0;i<id.data.length;i+=4){ var v=205+Math.random()*50; id.data[i]=id.data[i+1]=id.data[i+2]=v; id.data[i+3]=255; }
+  x.putImageData(id,0,0); var t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(3,3); return t; })();
+var matCache={};
+function velvet(color){ if(!matCache[color]) matCache[color]=new THREE.MeshStandardMaterial({color:color,map:TEX,bumpMap:TEX,bumpScale:0.5,roughness:1,metalness:0}); return matCache[color]; }
+var CLEAR=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.8,roughness:0.3});
+var WARN=new THREE.MeshBasicMaterial({color:0xd23a2a,transparent:true,opacity:0.38,depthWrite:false});
+var DRAWER_MAT=new THREE.MeshStandardMaterial({color:0xf0ede7,roughness:0.85});
+var DRAWER_IN=new THREE.MeshStandardMaterial({color:0xe9e5de,roughness:0.9});
+
+function buildModule(m){
+  var g=new THREE.Group(), mat=velvet(m.color), W=m.w, D=m.d, H=m.h, t=0.4, f=0.3;
+  function add(w,h,d,x,y,z,mt){ var me=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt||mat); me.position.set(x,y,z); me.castShadow=true; me.receiveShadow=true; g.add(me); return me; }
+  var ih=H-f, iw=W-2*t, id=D-2*t;
+  add(W,f,D,0,f/2,0);
+  add(W,ih,t,0,f+ih/2,-D/2+t/2); add(W,ih,t,0,f+ih/2,D/2-t/2);
+  add(t,ih,D-2*t,-W/2+t/2,f+ih/2,0); add(t,ih,D-2*t,W/2-t/2,f+ih/2,0);
+  function grid(x0,w,d,cols,rows,dh){
+    for(var i=1;i<cols;i++) add(0.3,dh,d,x0-w/2+i*w/cols,f+dh/2,0);
+    for(var j=1;j<rows;j++) add(w,dh,0.3,x0,f+dh/2,-d/2+j*d/rows);
+  }
+  function hooks(x0,w){ var n=Math.max(2,Math.floor(w/2.4)); for(var i=0;i<n;i++) add(0.25,1,0.12,x0-w/2+(i+0.5)*w/n,f+ih*0.62,-id/2+0.12,CLEAR); }
+  function rolls(x0,w,n){ var rw=w/n, r=Math.min(rw*0.46,ih*0.85);
+    for(var i=0;i<n;i++){ var c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,id*0.96,18),mat); c.rotation.x=Math.PI/2; c.position.set(x0-w/2+(i+0.5)*rw,f+r,0); c.castShadow=c.receiveShadow=true; g.add(c); } }
+  if(m.type==='grid'){ grid(0,iw,id,m.cols,m.rows,ih*0.85); }
+  else if(m.type==='pillows'){
+    grid(0,iw,id,m.cols,m.rows,ih*0.5);
+    var cw=iw/m.cols, cd=id/m.rows;
+    for(var i=0;i<m.cols;i++) for(var j=0;j<m.rows;j++){ var sy=Math.max(0.8,ih*0.55), p=new THREE.Mesh(new THREE.SphereGeometry(1,22,14),mat);
+      p.scale.set(cw*0.42,sy,cd*0.42); p.position.set(-iw/2+(i+0.5)*cw,f+sy*0.8,-id/2+(j+0.5)*cd); p.castShadow=p.receiveShadow=true; g.add(p); }
+  }
+  else if(m.type==='necklace'){ hooks(0,iw); }
+  else if(m.type==='rings'){ rolls(0,iw,Math.max(1,m.cols)); }
+  else if(m.type==='combo'){
+    var a=iw*0.38, c=iw*0.30, r=iw-a-c-0.8, s1=-iw/2+a+0.2, x2=-iw/2+a+0.4+c/2, s2=-iw/2+a+0.4+c+0.2, x3=iw/2-r/2;
+    add(0.4,ih,id,s1,f+ih/2,0); add(0.4,ih,id,s2,f+ih/2,0);
+    hooks(-iw/2+a/2,a); grid(x2,c,id,m.cols,m.rows,ih*0.85); rolls(x3,r,5);
+  }
+  var warn=new THREE.Mesh(new THREE.BoxGeometry(W*1.01,H*1.01,D*1.01),WARN); warn.position.y=H/2; warn.raycast=function(){}; warn.visible=false; g.add(warn);
+  g.userData.warn=warn; g.userData.mid=m.id;
+  return g;
+}
+function disposeGroup(g){ g.traverse(function(o){ if(o.geometry) o.geometry.dispose(); }); }
+
+function buildDrawer(){
+  var W=S.drawer.w, D=S.drawer.d, H=S.drawer.h, T=1.6, g=new THREE.Group();
+  function add(w,h,d,x,y,z,mt){ var me=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt||DRAWER_MAT); me.position.set(x,y,z); me.castShadow=true; me.receiveShadow=true; g.add(me); return me; }
+  add(W+2*T,1.2,D+2*T,0,-0.6,0,DRAWER_IN);
+  add(W+2*T,H,T,0,H/2,-(D/2+T/2));
+  add(T,H,D,-(W/2+T/2),H/2,0); add(T,H,D,(W/2+T/2),H/2,0);
+  var fr=add(W+2*T,H,T,0,H/2,(D/2+T/2)); g.userData.front=fr; fr.visible=showFront;
+  return g;
+}
+
+function syncDrawer(){
+  var sig=S.drawer.w+'|'+S.drawer.d+'|'+S.drawer.h;
+  if(sig!==drawerSig){ if(drawerGroup){scene.remove(drawerGroup);disposeGroup(drawerGroup);} drawerGroup=buildDrawer(); scene.add(drawerGroup); drawerSig=sig; if(ctlReady) setView(curView,true); }
+  drawerGroup.userData.front.visible=showFront;
+}
+function syncScene(){
+  var ids={}; S.modules.forEach(function(m){ids[m.id]=1;});
+  groups.forEach(function(g,id){ if(!ids[id]){ scene.remove(g); disposeGroup(g); groups.delete(id); } });
+  S.modules.forEach(function(m){
+    var g=groups.get(m.id), sig=[m.type,m.w,m.d,m.h,m.cols,m.rows,m.color].join('|');
+    if(!g||g.userData.sig!==sig){ if(g){scene.remove(g);disposeGroup(g);} g=buildModule(m); g.userData.sig=sig; scene.add(g); groups.set(m.id,g); }
+    g.position.set(m.x,m.y,m.z); g.rotation.y=m.rot?Math.PI/2:0; g.userData.warn.visible=!!m.bad;
+  });
+}
+
+/* výběr */
+var selBox=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0x2c8f96})); selBox.visible=false; scene.add(selBox);
+function updateSel(){
+  var m=selected&&byId(selected);
+  if(!m){ selBox.visible=false; return; }
+  var g=groups.get(m.id), f=fp(m);
+  selBox.visible=true; selBox.scale.set(f[0]+0.2,m.h+0.2,f[1]+0.2);
+  selBox.position.set(g?g.position.x:m.x,(g?g.position.y:m.y)+m.h/2,g?g.position.z:m.z);
+}
+function select(id){ selected=id; updateSel(); renderInspector(); renderList(); }
+
+/* kamera */
+var curView='persp', tween=null;
+function setView(kind,instant){
+  curView=kind; var W=S.drawer.w, D=S.drawer.d, th=Math.tan(cam.fov*Math.PI/360), asp=cam.aspect||1.5;
+  var fit=Math.max((D+10)/(2*th),(W+10)/(2*th*asp));
+  var dir=kind==='top'?[0,1,0.0008]:kind==='front'?[0,0.3,0.95]:[0,0.8,0.6];
+  var len=Math.sqrt(dir[0]*dir[0]+dir[1]*dir[1]+dir[2]*dir[2]), dist=fit*(kind==='persp'?1.12:1.0);
+  var to=new THREE.Vector3(dir[0]/len*dist,dir[1]/len*dist,dir[2]/len*dist);
+  var seg=document.querySelectorAll('#viewSeg button'); for(var i=0;i<seg.length;i++) seg[i].classList.toggle('on',seg[i].dataset.v===kind);
+  if(instant||!controls){ cam.position.copy(to); if(controls){controls.target.set(0,0,0);controls.update();} else cam.lookAt(0,0,0); tween=null; }
+  else tween={t0:performance.now(),dur:450,from:cam.position.clone(),to:to};
+}
+function resize(){ var w=stage.clientWidth,h=stage.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); canvas.style.width='100%'; canvas.style.height='100%'; cam.aspect=w/h; cam.updateProjectionMatrix(); }
+new ResizeObserver(function(){ var first=!ctlReady; resize(); if(first&&stage.clientWidth>0&&stage.clientHeight>0){ initControls(); } }).observe(stage);
+
+function initControls(){
+  ctlReady=true; controls=new THREE.OrbitControls(cam,canvas); controls.enableDamping=true; controls.dampingFactor=0.12;
+  controls.maxPolarAngle=Math.PI/2-0.03; controls.minDistance=15; controls.maxDistance=300; controls.enablePan=true;
+  setView(curView,true);
+}
+
+/* tagy */
+var tags={};
+['W','D','H','SEL'].forEach(function(k){ var e=document.createElement('div'); e.className='tag'+(k==='SEL'?' sel':''); stage.appendChild(e); tags[k]=e; });
+var proj=new THREE.Vector3();
+function placeTag(k,x,y,z,txt){ var e=tags[k]; if(txt===null){e.hidden=true;return;} proj.set(x,y,z).project(cam); var w=stage.clientWidth,h=stage.clientHeight;
+  if(proj.z>1){e.hidden=true;return;} e.hidden=false; e.textContent=txt; e.style.left=((proj.x*0.5+0.5)*w)+'px'; e.style.top=((-proj.y*0.5+0.5)*h)+'px'; }
+var dragInfo=null;
+function updateTags(){
+  var W=S.drawer.w,D=S.drawer.d,H=S.drawer.h,T=1.6;
+  placeTag('W',0,0,D/2+T+1.6,fmt(W)+' cm');
+  placeTag('D',W/2+T+2.2,0,0,fmt(D)+' cm');
+  placeTag('H',W/2+T+0.2,H,D/2+T+0.2,'výška '+fmt(H)+' cm');
+  var m=selected&&byId(selected);
+  if(m){ var g=groups.get(m.id), f=fp(m), px=g?g.position.x:m.x, py=g?g.position.y:m.y, pz=g?g.position.z:m.z;
+    var txt=fmt(m.w)+' × '+fmt(m.d)+' × '+fmt(m.h)+' cm';
+    if(dragInfo) txt+='  ·  zleva '+fmt(px-f[0]/2+S.drawer.w/2)+' / zezadu '+fmt(pz-f[1]/2+S.drawer.d/2);
+    placeTag('SEL',px,py+m.h+0.8,pz,txt);
+  } else placeTag('SEL',0,0,0,null);
+}
+
+/* ---------- interakce ---------- */
+var drag=null, downPos=null;
+function setRay(e){ var r=canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1); raycaster.setFromCamera(ndc,cam); }
+function pick(e){ setRay(e); var arr=[]; groups.forEach(function(g){arr.push(g);}); var hit=raycaster.intersectObjects(arr,true); for(var i=0;i<hit.length;i++){ var o=hit[i].object; while(o&&o.userData.mid===undefined) o=o.parent; if(o) return o.userData.mid; } return null; }
+canvas.addEventListener('pointerdown',function(e){
+  if(e.pointerType==='mouse'&&e.button!==0) return;
+  var id=pick(e);
+  if(id===null){ downPos={x:e.clientX,y:e.clientY}; return; }
+  var m=byId(id); select(id);
+  controls.enabled=false; try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+  var plane=new THREE.Plane(new THREE.Vector3(0,1,0),-(m.y+m.h/2)), p=new THREE.Vector3();
+  if(!raycaster.ray.intersectPlane(plane,p)){ controls.enabled=true; return; }
+  var group=[m].concat(deps(m));
+  drag={m:m,group:group,plane:plane,off:{x:p.x-m.x,z:p.z-m.z},starts:group.map(function(o){return{x:o.x,z:o.z,y:o.y};}),ok:true,moved:false,res:null,cx:m.x,cz:m.z};
+  dragInfo=drag;
+},true);
+canvas.addEventListener('pointermove',function(e){
+  if(!drag){ if(e.pointerType==='mouse'){ canvas.style.cursor=pick(e)!==null?'grab':'default'; } return; }
+  setRay(e); var p=new THREE.Vector3(); if(!raycaster.ray.intersectPlane(drag.plane,p)) return;
+  var m=drag.m, cx=p.x-drag.off.x, cz=p.z-drag.off.z;
+  var others=S.modules.filter(function(o){return drag.group.indexOf(o)<0;});
+  var s=snap(m,cx,cz,others,m.rot); cx=Math.round(s[0]*10)/10; cz=Math.round(s[1]*10)/10;
+  var ev=evalMove(m,cx,cz); drag.ok=ev.ok; drag.res=ev; drag.cx=cx; drag.cz=cz; drag.moved=true; drag.why=ev.why;
+  canvas.style.cursor='grabbing';
+  var dy=ev.ok?ev.dy:(ev.y-m.y), dx=cx-m.x, dz=cz-m.z;
+  drag.group.forEach(function(o,i){ var g=groups.get(o.id); if(g) g.position.set(o.x+dx,o.y+dy,o.z+dz); });
+  var g0=groups.get(m.id); if(g0) g0.userData.warn.visible=!ev.ok;
+  updateSel();
+});
+function endDrag(e){
+  if(drag){
+    var d=drag; drag=null; dragInfo=null; controls.enabled=true; canvas.style.cursor='default';
+    try{canvas.releasePointerCapture(e.pointerId);}catch(_){}
+    if(d.moved){
+      if(d.ok&&(Math.abs(d.cx-d.m.x)>1e-6||Math.abs(d.cz-d.m.z)>1e-6||Math.abs(d.res.dy)>1e-6)){ applyMove(d.m,d.cx,d.cz,undefined,d.res); commit(); }
+      else { if(!d.ok) toast(WHY[d.why]||'Sem se modul nevejde'); syncScene(); updateSel(); }
+    }
+    return;
+  }
+  if(downPos){ var dx=e.clientX-downPos.x, dy=e.clientY-downPos.y; if(dx*dx+dy*dy<25) select(null); downPos=null; }
+}
+canvas.addEventListener('pointerup',endDrag);
+canvas.addEventListener('pointercancel',endDrag);
+
+window.addEventListener('keydown',function(e){
+  var t=e.target&&e.target.tagName; if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT') return;
+  if(!$('#modal').hidden){ if(e.key==='Escape') closeModal(); return; }
+  var mod=e.ctrlKey||e.metaKey, k=e.key.toLowerCase();
+  if(mod&&k==='z'){ e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
+  if(mod&&k==='y'){ e.preventDefault(); redo(); return; }
+  var m=selected&&byId(selected); if(!m) return;
+  if(k==='r'){ rotateSel(); }
+  else if(k==='delete'||k==='backspace'){ e.preventDefault(); delSel(); }
+  else if(k==='escape'){ select(null); }
+  else if(k.indexOf('arrow')===0){ e.preventDefault(); var st=e.shiftKey?2:0.5, dx=0,dz=0; if(k==='arrowleft')dx=-st; if(k==='arrowright')dx=st; if(k==='arrowup')dz=-st; if(k==='arrowdown')dz=st; tryMove(m,m.x+dx,m.z+dz); }
+});
+
+/* ---------- akce ---------- */
+var toastT=null;
+function toast(msg){ var t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove('show');},2600); }
+function tryMove(m,cx,cz,rot){
+  var ev=evalMove(m,cx,cz,rot); if(!ev.ok){ toast(WHY[ev.why]||'Tam se modul nevejde'); return false; }
+  applyMove(m,cx,cz,rot,ev); commit(); return true;
+}
+function rotateSel(){
+  var m=selected&&byId(selected); if(!m) return; var nr=m.rot?0:1, f=fp(m,nr), W=S.drawer.w, D=S.drawer.d;
+  var cx=clamp(m.x,-W/2+f[0]/2,W/2-f[0]/2), cz=clamp(m.z,-D/2+f[1]/2,D/2-f[1]/2);
+  if(!tryMove(m,cx,cz,nr)) toast('Po otočení se modul nevejde');
+}
+function delSel(){ if(!selected) return; S.modules=S.modules.filter(function(o){return o.id!==selected;}); selected=null; commit(); }
+function dupSel(){
+  var m=selected&&byId(selected); if(!m) return; var c=JSON.parse(JSON.stringify(m)); c.id=S.nextId++; c.name=m.name;
+  var sp=findSpot(c,S.modules); if(!sp){ toast('Kopie se už do šuplíku nevejde'); return; }
+  c.x=sp.x;c.z=sp.z;c.y=sp.y;c.rot=sp.rot; S.modules.push(c); selected=c.id; commit();
+}
+function addPreset(p){
+  var m=mk(p), sp=findSpot(m,S.modules);
+  if(!sp){ toast('Modul se už nevejde. Uvolněte místo nebo ho zmenšete.'); return; }
+  m.x=sp.x;m.z=sp.z;m.y=sp.y;m.rot=sp.rot; S.modules.push(m); selected=m.id; commit();
+}
+function autoArrange(){
+  if(!S.modules.length) return;
+  var list=S.modules.slice().sort(function(a,b){ return b.w*b.d-a.w*a.d||b.h-a.h; }), placed=[], fail=0;
+  list.forEach(function(m){ var sp=findSpot(m,placed); if(sp){ m.x=sp.x;m.z=sp.z;m.y=sp.y;m.rot=sp.rot; m.bad=false; } else { fail++; m.x=0;m.z=0;m.y=0; m.bad=true; } placed.push(m); });
+  selected=null; pushHist(); save(); refreshAll();
+  toast(fail?('Nevešlo se '+fail+' z '+list.length+' modulů (červeně)'):'Moduly rozmístěny');
+}
+var clearArm=null;
+$('#btnClear').addEventListener('click',function(){
+  var b=this; if(!clearArm){ b.textContent='Opravdu vyprázdnit?'; clearArm=setTimeout(function(){b.textContent='Vyprázdnit šuplík';clearArm=null;},3000); return; }
+  clearTimeout(clearArm); clearArm=null; b.textContent='Vyprázdnit šuplík'; S.modules=[]; selected=null; commit();
+});
+$('#btnAuto').addEventListener('click',autoArrange);
+$('#btnUndo').addEventListener('click',undo);
+$('#btnRedo').addEventListener('click',redo);
+$('#chkFront').addEventListener('change',function(){ showFront=this.checked; syncDrawer(); });
+$('#viewSeg').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b) setView(b.dataset.v); });
+
+/* ---------- katalog ---------- */
+function drawThumb(cv,p){
+  var dpr=2, W=64*dpr, H=46*dpr; cv.width=W; cv.height=H; var x=cv.getContext('2d');
+  var asp=p.w/p.d, bw=Math.min(W-8,(H-8)*asp), bh=bw/asp, ox=(W-bw)/2, oy=(H-bh)/2;
+  x.fillStyle='#b4b7bb'; x.fillRect(ox,oy,bw,bh); x.fillStyle='#c6c9cc'; x.fillRect(ox+3,oy+3,bw-6,bh-6);
+  x.strokeStyle='#8f9296'; x.lineWidth=1.5; var iw=bw-6, ih=bh-6, ix=ox+3, iy=oy+3;
+  function gridL(gx,gy,gw,gh,c,r){ for(var i=1;i<c;i++){x.beginPath();x.moveTo(gx+gw*i/c,gy);x.lineTo(gx+gw*i/c,gy+gh);x.stroke();} for(var j=1;j<r;j++){x.beginPath();x.moveTo(gx,gy+gh*j/r);x.lineTo(gx+gw,gy+gh*j/r);x.stroke();} }
+  function rollsL(gx,gy,gw,gh,n){ x.fillStyle='#d8dadc'; for(var i=0;i<n;i++){ var rw=gw/n; x.fillRect(gx+i*rw+1.5,gy+1.5,rw-3,gh-3); } x.fillStyle='#c6c9cc'; }
+  function hooksL(gx,gy,gw){ x.fillStyle='#fff'; var n=Math.max(2,Math.floor(gw/(6*dpr))); for(var i=0;i<n;i++) x.fillRect(gx+(i+0.5)*gw/n-1,gy+2,2,6); x.fillStyle='#c6c9cc'; }
+  if(p.type==='grid') gridL(ix,iy,iw,ih,p.cols,p.rows);
+  else if(p.type==='pillows'){ gridL(ix,iy,iw,ih,p.cols,p.rows); x.fillStyle='#dfe1e3'; for(var i=0;i<p.cols;i++)for(var j=0;j<p.rows;j++){ x.beginPath(); x.ellipse(ix+(i+.5)*iw/p.cols,iy+(j+.5)*ih/p.rows,iw/p.cols*0.38,ih/p.rows*0.36,0,0,6.3); x.fill(); } }
+  else if(p.type==='necklace') hooksL(ix,iy,iw);
+  else if(p.type==='rings') rollsL(ix,iy,iw,ih,p.cols);
+  else if(p.type==='combo'){ var a=iw*0.38,c=iw*0.3; hooksL(ix,iy,a); x.beginPath();x.moveTo(ix+a,iy);x.lineTo(ix+a,iy+ih);x.stroke(); gridL(ix+a,iy,c,ih,p.cols,p.rows); x.beginPath();x.moveTo(ix+a+c,iy);x.lineTo(ix+a+c,iy+ih);x.stroke(); rollsL(ix+a+c,iy,iw-a-c,ih,5); }
+}
+(function(){
+  var box=$('#cards');
+  PRESETS.forEach(function(p){
+    var b=document.createElement('button'); b.className='card'; b.type='button';
+    b.innerHTML='<canvas></canvas><div><b>'+p.name+'</b><span>'+fmt(p.w)+' × '+fmt(p.d)+' × '+fmt(p.h)+' cm</span></div>';
+    drawThumb(b.querySelector('canvas'),p); b.addEventListener('click',function(){addPreset(p);}); box.appendChild(b);
+  });
+})();
+
+/* ---------- inspektor ---------- */
+var inspKey='';
+function colsLabel(m){ return m.type==='rings'?'Počet rolí':'Sloupce'; }
+function hasCols(m){ return m.type==='grid'||m.type==='pillows'||m.type==='combo'||m.type==='rings'; }
+function hasRows(m){ return m.type==='grid'||m.type==='pillows'||m.type==='combo'; }
+function renderInspector(force){
+  var box=$('#inspector'), m=selected&&byId(selected);
+  if(!m){ inspKey=''; box.innerHTML='<h2>Vybraný modul</h2><p class="hint">Klepněte na modul v šuplíku nebo v seznamu. Přetažením ho přesunete, tlačítkem nebo klávesou R ho otočíte.</p>'; return; }
+  var key=m.id+'|'+m.type+'|'+m.color;
+  if(key!==inspKey||force){
+    inspKey=key;
+    var sw=COLORS.map(function(c){return '<button type="button" class="sw'+(c[1]===m.color?' on':'')+'" style="background:'+c[1]+'" title="'+c[0]+'" data-c="'+c[1]+'" aria-label="'+c[0]+'"></button>';}).join('');
+    box.innerHTML='<h2>Vybraný modul</h2>'+
+     '<div style="display:flex;flex-direction:column;gap:12px">'+
+     '<label class="f">Název<input type="text" id="f-name"></label>'+
+     '<div class="fields"><label class="f">Šířka<input type="number" id="f-w" min="2" max="80" step="0.1"></label><label class="f">Hloubka<input type="number" id="f-d" min="2" max="80" step="0.1"></label><label class="f">Výška<input type="number" id="f-h" min="1" max="30" step="0.1"></label></div>'+
+     (hasCols(m)?'<div class="fields two"><label class="f">'+colsLabel(m)+'<input type="number" id="f-cols" min="1" max="14" step="1"></label>'+(hasRows(m)?'<label class="f">Řady<input type="number" id="f-rows" min="1" max="14" step="1"></label>':'')+'</div>':'')+
+     '<div class="fields two"><label class="f">Od levé stěny<input type="number" id="f-px" step="0.1"></label><label class="f">Od zadní stěny<input type="number" id="f-pz" step="0.1"></label></div>'+
+     '<div><div class="hint" style="margin-bottom:6px;font-weight:600">Barva</div><div class="swatches" id="sws">'+sw+'</div></div>'+
+     '<div class="row"><button class="btn sm" id="b-rot" type="button">Otočit o 90°</button><button class="btn sm" id="b-dup" type="button">Duplikovat</button><button class="btn sm danger" id="b-del" type="button">Smazat</button></div>'+
+     '<p class="hint" id="f-info"></p></div>';
+    $('#f-name').addEventListener('change',function(){ m.name=this.value.trim()||m.name; commit(); });
+    ['w','d','h'].forEach(function(k){ $('#f-'+k).addEventListener('change',function(){ var v=clamp(parseFloat(this.value)||m[k],1,80); var old=m[k]; m[k]=Math.round(v*10)/10; resizeFix(m); commit(); if(m.bad){ toast('Modul po úpravě koliduje, přesuňte ho'); } }); });
+    if(hasCols(m)) $('#f-cols').addEventListener('change',function(){ m.cols=clamp(Math.round(parseFloat(this.value)||1),1,14); commit(); });
+    if(hasRows(m)) $('#f-rows').addEventListener('change',function(){ m.rows=clamp(Math.round(parseFloat(this.value)||1),1,14); commit(); });
+    $('#f-px').addEventListener('change',function(){ var f=fp(m); var cx=parseFloat(this.value); if(isNaN(cx)) return; if(!tryMove(m,cx+f[0]/2-S.drawer.w/2,m.z)) refreshAll(); });
+    $('#f-pz').addEventListener('change',function(){ var f=fp(m); var cz=parseFloat(this.value); if(isNaN(cz)) return; if(!tryMove(m,m.x,cz+f[1]/2-S.drawer.d/2)) refreshAll(); });
+    $('#sws').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; m.color=b.dataset.c; commit(); });
+    $('#b-rot').addEventListener('click',rotateSel); $('#b-dup').addEventListener('click',dupSel); $('#b-del').addEventListener('click',delSel);
+  }
+  function setv(id,v){ var e=$(id); if(e&&document.activeElement!==e) e.value=v; }
+  var f=fp(m);
+  setv('#f-name',m.name); setv('#f-w',m.w); setv('#f-d',m.d); setv('#f-h',m.h);
+  if(hasCols(m)) setv('#f-cols',m.cols); if(hasRows(m)) setv('#f-rows',m.rows);
+  setv('#f-px',Math.round((m.x-f[0]/2+S.drawer.w/2)*10)/10); setv('#f-pz',Math.round((m.z-f[1]/2+S.drawer.d/2)*10)/10);
+  $('#f-info').textContent='Patro: '+(m.y>0.05?'nahoře, '+fmt(m.y)+' cm nade dnem':'na dně')+' · otočení '+(m.rot?'90°':'0°')+(m.bad?' · KOLIDUJE':'');
+}
+function resizeFix(m){ var f=fp(m), W=S.drawer.w, D=S.drawer.d; m.x=clamp(m.x,-W/2+f[0]/2,Math.max(-W/2+f[0]/2,W/2-f[0]/2)); m.z=clamp(m.z,-D/2+f[1]/2,Math.max(-D/2+f[1]/2,D/2-f[1]/2)); }
+
+/* ---------- statistiky a seznam ---------- */
+function computeStats(){
+  var W=S.drawer.w, D=S.drawer.d, nx=Math.max(1,Math.ceil(W)), nz=Math.max(1,Math.ceil(D)), occ=[], used=0;
+  for(var j=0;j<nz;j++){ var row=[]; for(var i=0;i<nx;i++){ var x=-W/2+(i+0.5)*W/nx, z=-D/2+(j+0.5)*D/nz, o=false;
+    for(var k=0;k<S.modules.length;k++){ var m=S.modules[k], f=fp(m); if(Math.abs(x-m.x)<f[0]/2&&Math.abs(z-m.z)<f[1]/2){o=true;break;} }
+    row.push(o); if(o) used++; } occ.push(row); }
+  var hts=new Array(nx).fill(0), best={a:0,w:0,d:0};
+  for(var j2=0;j2<nz;j2++){ for(var i2=0;i2<nx;i2++) hts[i2]=occ[j2][i2]?0:hts[i2]+1;
+    for(var a=0;a<nx;a++){ var mh=1e9; for(var b=a;b<nx;b++){ mh=Math.min(mh,hts[b]); if(!mh) break; var w=(b-a+1)*W/nx, d=mh*D/nz; if(w*d>best.a) best={a:w*d,w:w,d:d}; } } }
+  var tot=nx*nz, top=0; S.modules.forEach(function(m){ top=Math.max(top,m.y+m.h); });
+  return {pct:used/tot,free:(tot-used)/tot*W*D,best:best,top:top};
+}
+function renderStats(){
+  var st=computeStats();
+  $('#useBar').style.width=Math.round(st.pct*100)+'%';
+  $('#statKv').innerHTML='<span>Zaplněná podlaha</span><span>'+Math.round(st.pct*100)+' %</span><span>Volná plocha</span><span>'+Math.round(st.free)+' cm²</span><span>Největší volné místo</span><span>'+(st.best.a>1?fmt(st.best.w)+' × '+fmt(st.best.d)+' cm':'žádné')+'</span><span>Nejvyšší bod</span><span>'+fmt(st.top)+' z '+fmt(S.drawer.h)+' cm</span>';
+  $('#statChip').textContent='Zaplněno '+Math.round(st.pct*100)+' % · volno '+(st.best.a>1?fmt(st.best.w)+' × '+fmt(st.best.d)+' cm':'nic');
+  var bad=S.modules.filter(function(m){return m.bad;});
+  $('#warnBox').textContent=bad.length?('Pozor: '+bad.length+' '+(bad.length===1?'modul koliduje nebo se nevejde':'moduly kolidují nebo se nevejdou')+' (červeně).'):'';
+  return st;
+}
+function renderList(){
+  var box=$('#modList'); if(!S.modules.length){ box.innerHTML='<p class="hint">Šuplík je prázdný. Přidejte modul z katalogu vlevo.</p>'; return; }
+  box.innerHTML=''; S.modules.forEach(function(m){ var b=document.createElement('button'); b.type='button'; b.className='li'+(m.id===selected?' on':'')+(m.bad?' bad':'');
+    b.innerHTML='<b style="font-weight:600;font-size:13px"></b><small>'+fmt(m.w)+'×'+fmt(m.d)+'×'+fmt(m.h)+(m.y>0.05?' · patro 2':'')+'</small>'; b.querySelector('b').textContent=m.name;
+    b.addEventListener('click',function(){select(m.id);}); box.appendChild(b); });
+}
+function refreshAll(){
+  $('#dw').value!==String(S.drawer.w)&&($('#dw').value=S.drawer.w); $('#dd').value=S.drawer.d; $('#dh').value=S.drawer.h;
+  $('#drawerSub').textContent='vnitřek '+fmt(S.drawer.w)+' × '+fmt(S.drawer.d)+' × '+fmt(S.drawer.h)+' cm';
+  syncDrawer(); syncScene(); updateSel(); renderInspector(); renderList(); renderStats();
+  $('#btnUndo').disabled=hi<=0; $('#btnRedo').disabled=hi>=hist.length-1;
+}
+['dw','dd','dh'].forEach(function(id){ $('#'+id).addEventListener('change',function(){
+  var v=parseFloat(this.value); if(isNaN(v)) return; var k=id==='dw'?'w':id==='dd'?'d':'h'; S.drawer[k]=clamp(v,k==='h'?2:10,k==='h'?60:200);
+  S.modules.forEach(resizeFix); commit(); setView(curView,true);
+}); });
+
+/* ---------- export a sdílení ---------- */
+function openModal(html){ $('#sheet').innerHTML=html; $('#modal').hidden=false; }
+function closeModal(){ $('#modal').hidden=true; }
+$('#modal').addEventListener('click',function(e){ if(e.target.id==='modal') closeModal(); });
+function copyText(txt,btn){
+  var done=function(){ if(btn){ var o=btn.textContent; btn.textContent='Zkopírováno'; setTimeout(function(){btn.textContent=o;},1500); } };
+  try{ navigator.clipboard.writeText(txt).then(done,function(){ fallbackCopy(); }); }catch(e){ fallbackCopy(); }
+  function fallbackCopy(){ var t=$('#sheet textarea')||$('#sheet pre'); if(t){ if(t.select) t.select(); else { var r=document.createRange(); r.selectNodeContents(t); var s=getSelection(); s.removeAllRanges(); s.addRange(r); } } if(btn) btn.textContent='Označeno, stiskněte Ctrl+C'; }
+}
+function listText(){
+  var agg={}; S.modules.forEach(function(m){ var k=m.name+'|'+m.w+'|'+m.d+'|'+m.h+'|'+m.cols+'|'+m.rows+'|'+m.type; (agg[k]=agg[k]||{m:m,n:0}).n++; });
+  var lines=['Šuplík (vnitřek): '+fmt(S.drawer.w)+' × '+fmt(S.drawer.d)+' × '+fmt(S.drawer.h)+' cm',''];
+  Object.keys(agg).forEach(function(k){ var a=agg[k], m=a.m; lines.push(a.n+'× '+m.name+' – '+fmt(m.w)+' × '+fmt(m.d)+' × '+fmt(m.h)+' cm'+(hasRows(m)?' ('+m.cols+'×'+m.rows+' přihrádek)':hasCols(m)?' ('+m.cols+' rolí)':'')); });
+  var st=computeStats(); lines.push('','Zaplněno '+Math.round(st.pct*100)+' % podlahy, nejvyšší bod '+fmt(st.top)+' z '+fmt(S.drawer.h)+' cm.'); return lines.join('\n');
+}
+$('#btnExport').addEventListener('click',function(){
+  selBox.visible=false; ['W','D','H','SEL'].forEach(function(k){tags[k].style.visibility='hidden';});
+  renderer.render(scene,cam); var url=canvas.toDataURL('image/png'); ['W','D','H','SEL'].forEach(function(k){tags[k].style.visibility='';}); updateSel();
+  openModal('<h3>Export rozložení</h3><img alt="Náhled rozložení šuplíku" src="'+url+'"><p class="hint">Obrázek uložíte dlouhým stisknutím nebo pravým tlačítkem myši.</p><pre id="exTxt"></pre><div class="row"><button class="btn primary" id="exCopy">Kopírovat seznam</button><button class="btn" id="exClose">Zavřít</button></div>');
+  $('#exTxt').textContent=listText(); $('#exCopy').addEventListener('click',function(){copyText(listText(),this);}); $('#exClose').addEventListener('click',closeModal);
+});
+$('#btnShare').addEventListener('click',function(){
+  var code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+  openModal('<h3>Sdílení rozložení</h3><p class="hint">Zkopírujte kód a pošlete ho dál. Kdokoli ho vloží sem a rozložení se načte. Kód neobsahuje žádné osobní údaje.</p><label class="f">Kód rozložení<textarea id="shCode"></textarea></label><div class="row"><button class="btn primary" id="shCopy">Kopírovat kód</button><button class="btn" id="shLoad">Načíst vložený kód</button><button class="btn" id="shClose">Zavřít</button></div><p class="warn" id="shErr"></p>');
+  $('#shCode').value=code; $('#shCopy').addEventListener('click',function(){copyText($('#shCode').value,this);}); $('#shClose').addEventListener('click',closeModal);
+  $('#shLoad').addEventListener('click',function(){ try{ var o=JSON.parse(decodeURIComponent(escape(atob($('#shCode').value.trim()))));
+      if(!o||!o.drawer||!Array.isArray(o.modules)) throw 0; o.modules.forEach(function(m){ if(typeof m.w!=='number'||typeof m.d!=='number'||typeof m.h!=='number') throw 0; });
+      S=o; selected=null; commit(); closeModal(); toast('Rozložení načteno'); }catch(e){ $('#shErr').textContent='Kód se nepodařilo načíst. Zkontrolujte, že je vložený celý.'; } });
+});
+
+/* ---------- téma ---------- */
+function applyTheme(){ var cs=getComputedStyle(document.documentElement); scene.background=new THREE.Color(cs.getPropertyValue('--stage').trim()||'#e9e6e0'); ground.material.color.set(cs.getPropertyValue('--ground').trim()||'#b9a58f'); }
+applyTheme();
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme); }catch(e){}
+new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ---------- start ---------- */
+if(!load()) seed(); S.modules.forEach(function(m){ if(m.bad===undefined) m.bad=false; });
+settle(); pushHist(); refreshAll();
+(function loop(){
+  requestAnimationFrame(loop);
+  if(tween){ var k=clamp((performance.now()-tween.t0)/tween.dur,0,1), e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2; cam.position.lerpVectors(tween.from,tween.to,e); if(controls) controls.target.set(0,0,0); if(k>=1) tween=null; }
+  if(controls) controls.update(); else cam.lookAt(0,0,0);
+  updateTags(); renderer.render(scene,cam);
+})();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+</script>
+</body>
+</html>
